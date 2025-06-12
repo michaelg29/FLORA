@@ -30,7 +30,10 @@ CFLAGS += -DFPGA_VC707
 else ifeq ($(FPGA),VCU118)
 SOURCES_SHARED += include/vcu118.h src/vcu118.cpp include/vcu118_fine_grained.h src/vcu118_fine_grained.cpp
 CFLAGS += -DFPGA_VCU118
-else 
+else ifeq ($(FPGA),VCU128)
+SOURCES_SHARED += include/vcu128.h src/vcu128.cpp include/vcu128_fine_grained.h src/vcu128_fine_grained.cpp
+CFLAGS += -DFPGA_VCU128
+else
 SOURCES_SHARED += include/zynq.h src/zynq.cpp include/zynq_fine_grained.h src/zynq_fine_grained.cpp
 CFLAGS += -DFPGA_ZYNQ
 endif
@@ -40,6 +43,8 @@ ifeq ($(FPGA),VC707)
 flora: SOURCES_MILP = src/milp_model_vc707.cpp
 else ifeq ($(FPGA),VCU118)
 flora: SOURCES_MILP = src/milp_model_vcu118.cpp
+else ifeq ($(FPGA),VCU128)
+flora: SOURCES_MILP = src/milp_model_vcu128.cpp
 endif
 
 flora: SOURCES += flora/src/flora.cpp
@@ -48,9 +53,9 @@ flora: CFLAGS += -DRUN_FLORA
 flora: build
 
 build:
-	mkdir -p bin	
+	mkdir -p bin
 	$(CC) -o bin/$(BIN) $(CFLAGS) $(SOURCES_SHARED) $(SOURCES_MILP) $(SOURCES) $(LDFLAGS)
 
 .PHONY: clean
-clean: 
-	rm -f bin/*run*	
+clean:
+	rm -f bin/*run*
