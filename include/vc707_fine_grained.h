@@ -3,7 +3,8 @@
 
 class vc707_fine_grained {
 public:
-     finegrained_res_description fg[VC707_WIDTH] = {{CLB, 0, 1},
+    // each CLB has two slices
+    finegrained_res_description fg[VC707_WIDTH] = {{CLB, 0, 1},
                                                    {CLB, 2, 3},
                                                    {CLB, 4, 5},
                                                    {CLB, 6, 7},
@@ -16,7 +17,7 @@ public:
                                                    {BRAM, 1, 1},
                                                    {CLB, 18, 19},
                                                    {CLB, 20, 21},
-                                                   {DSP, 0, 0}, 
+                                                   {DSP, 0, 0},
                                                    {CLB, 22, 23},
                                                    {CLB, 24, 25},
                                                    {CLB, 26, 27},
@@ -152,6 +153,6 @@ public:
 
      void init_fine_grained();
      vc707_fine_grained();
-     
+
 };
 

@@ -5,7 +5,7 @@ CFLAGS += -std=c++17
 #CFLAGS += -L$(GUROBI_HOME)/lib
 #CFLAGS += -ggdb -g3
 
-LDFLAGS = -lgurobi_g++5.2 -lgurobi_c++ -lgurobi81 -lm -lstdc++fs
+LDFLAGS = -lgurobi_g++5.2 -lgurobi_c++ -lgurobi100 -lm -lstdc++fs
 
 all:
 	@echo "Please run the make file using the following format"
@@ -38,6 +38,8 @@ SOURCES_SHARED += include/zynq.h src/zynq.cpp include/zynq_fine_grained.h src/zy
 CFLAGS += -DFPGA_ZYNQ
 endif
 
+CFLAGS += -DFLORA_CORRECTED
+CFLAGS += -DFLORA_AUTOGEN_CONSTR
 
 ifeq ($(FPGA),VC707)
 flora: SOURCES_MILP = src/milp_model_vc707.cpp

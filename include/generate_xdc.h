@@ -55,9 +55,10 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
     write_xdc.open(fplan_xdc_file);\
     write_xdc<< "# User Generated miscellaneous constraints" << endl <<endl <<endl;\
     for(a = 0; a < num_slots; a++){\
-        write_xdc << "set_property HD.RECONFIGURABLE true [get_cells "<<cell_name[a] <<"]" <<endl;\
+        write_xdc << "set cell [get_cells "<<cell_name[a] << "]" << endl;\
+        write_xdc << "set_property HD.RECONFIGURABLE true $cell" <<endl;\
         write_xdc <<"create_pblock pblock_"<<slot_names[a] <<endl;\
-        write_xdc <<"add_cells_to_pblock [get_pblocks pblock_"<<slot_names[a] <<"] [get_cells -quiet [list "<<cell_name[a] <<"]]" <<endl;\
+        write_xdc <<"add_cells_to_pblock [get_pblocks pblock_"<<slot_names[a] <<"] $cell" <<endl;\
         if((*from_fp_solver->clb_from_solver)[a] != 0) {\
             write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {SLICE_X" <<slices_in_slot[a][0].slice_x1<<"Y" <<\
                      slices_in_slot[a][0].slice_y1 <<":" <<"SLICE_X"<<slices_in_slot[a][0].slice_x2<<"Y"<<slices_in_slot[a][0].slice_y2 << "}" <<endl;\
@@ -85,7 +86,7 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
     write_xdc << "set_property SEVERITY {Warning} [get_drc_checks NSTD-1]" <<endl;\
     write_xdc << "set_property SEVERITY {Warning} [get_drc_checks UCIO-1]" <<endl;\
     write_xdc.close();\
-    cout << "GENERATE_XDC: Finsihded xdc generation " << endl;\
+    cout << "GENERATE_XDC: Finished xdc generation " << endl;\
 }
 
 #define sort_output(fpga_type, from_fp_solver, to_solver, output_vec, num_slots) {\

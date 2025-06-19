@@ -51,7 +51,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
             delta_size = num_slots;
             //delta_size = num_forbidden_slots;
-        
+
 
         //Variable definition
 
@@ -222,7 +222,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
         }
 
         /**********************************************************************
-        The following 3 variables record the total number of CLB, BRAM and DSP 
+        The following 3 variables record the total number of CLB, BRAM and DSP
         in forbidden regions.
         ***********************************************************************/
 
@@ -598,7 +598,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
                 model.addConstr(y[i] <= (H - beta[i][j] * (H - j)), "99");
             model.addConstr(y[i] + h[i] <= H, "100");
         }
-        
+
         //Resource Constraints
         /******************************************************************
         Constr 2.0: The clb fingerprint on the FPGA is described using the following
@@ -724,7 +724,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 11)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-                
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 12)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -733,7 +733,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 14)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-                
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 15)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -742,7 +742,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 17)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-            
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 18)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -751,7 +751,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 20)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-                
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 21)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
 
@@ -763,7 +763,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 24)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-                
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 25)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -772,7 +772,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 27)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-                
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 28)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -781,7 +781,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 30)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-            
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 31)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -796,7 +796,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 36)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-            
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 37)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
 
@@ -804,11 +804,11 @@ int solve_milp_vcu118(param_from_solver *to_sim)
                                                            BIG_M * (1 - z[0][i][k][l++]), "14");
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 39)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");           
+                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
 
                 model.addConstr(clb[i][k] >= (x[i][k] - 40)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "15");
-            
+
                 model.addConstr(clb[i][k] >= (x[i][k] - 41)  - BIG_M * (1 - z[0][i][k][l++]) -
                                                            BIG_M * (1 - z[0][i][k][l++]), "12");
         }
@@ -845,7 +845,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(x[i][k] - 11 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
                                                        BIG_M * (1 - z[0][i][k][l++]), "23");
-            
+
                 model.addConstr(x[i][k] - 12 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
                                                        BIG_M * (1 - z[0][i][k][l++]), "17");
 
@@ -905,7 +905,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(x[i][k] - 31 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
                                                        BIG_M * (1 - z[0][i][k][l++]), "23");
-          
+
                 model.addConstr(x[i][k] - 32 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
                                                        BIG_M * (1 - z[0][i][k][l++]), "18");
 
@@ -932,7 +932,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(x[i][k] - 41 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
                                                        BIG_M * (1 - z[0][i][k][l++]), "23");
-            
+
             }
         }
 
@@ -977,7 +977,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
                 model.addConstr(exp <= (l + 1) /2);
             }
         }
-        
+
         for(i = 0; i < num_slots; i++) {
             for(k = 0; k < 2; k++) {
                 l = 0;
@@ -1054,7 +1054,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(6 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
                                                        BIG_M * (1 - z[1][i][k][l++]), "46");
-                
+
                 model.addConstr(7 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
                                                        BIG_M * (1 - z[1][i][k][l++]), "44");
 
@@ -1075,7 +1075,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(13 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
                                                        BIG_M * (1 - z[1][i][k][l++]), "46");
-        
+
                 model.addConstr(14 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
 
                 model.addConstr(15 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
@@ -1160,7 +1160,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(dsp[i][k] >= (5  - BIG_M * (1 - z[2][i][k][l++]) -
                                                   BIG_M * (1 - z[2][i][k][l++])), "53");
-                
+
                 model.addConstr(dsp[i][k] >= (6  - BIG_M * (1 - z[2][i][k][l++]) -
                                                   BIG_M * (1 - z[2][i][k][l++])), "53");
 
@@ -1178,7 +1178,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(dsp[i][k] >= (11  - BIG_M * (1 - z[2][i][k][l++]) -
                                                   BIG_M * (1 - z[2][i][k][l++])), "53");
-                
+
                 model.addConstr(dsp[i][k] >= (12  - BIG_M * (1 - z[2][i][k][l++]) -
                                                   BIG_M * (1 - z[2][i][k][l++])), "53");
 
@@ -1219,7 +1219,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
                 model.addConstr(4 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
                                                     BIG_M * (1 - z[2][i][k][l++]), "57");
-      
+
                 model.addConstr(5 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
                                                     BIG_M * (1 - z[2][i][k][l++]), "56");
 
@@ -1411,11 +1411,11 @@ int solve_milp_vcu118(param_from_solver *to_sim)
         *************************************************************************/
         GRBLinExpr obj_x, obj_y, obj_wasted_clb, obj_wasted_bram, obj_wasted_dsp;
         unsigned long wl_max = 0;
-        
+
         for(i = 0; i < num_slots; i++) {
             model.addConstr(centroid[i][0] == x[i][0] + w[i] / 2, "84");
             model.addConstr(centroid[i][1] == y[i] * 10 + h[i] * 10 / 2, "86");
-        }    
+        }
 
        for(i =0; i < num_slots; i++){
             for(j = 0; j < num_slots; j++) {
@@ -1437,19 +1437,19 @@ int solve_milp_vcu118(param_from_solver *to_sim)
                 obj_y += dist[i][j][1];
             }
     }
-        
+
         for(i = 0; i < num_slots; i++) {
             obj_wasted_clb  += wasted[i][0];
             obj_wasted_bram += wasted[i][1];
             obj_wasted_dsp  += wasted[i][2];
         }
-        
+
 
          model.setObjective((obj_x), GRB_MINIMIZE);
         //model.setObjective(obj_wasted_clb,  GRB_MINIMIZE);
         //model.setObjective(obj_wasted_bram, GRB_MINIMIZE);
          //model.setObjective(0.1 * obj_wasted_dsp,  GRB_MINIMIZE);
-  
+
         //Optimize
         /****************************************************************************
         Optimize
@@ -1516,7 +1516,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
             cout <<endl;
             cout << "total wasted clb " <<wasted_clb_vcu118 <<
                     " total wasted bram " <<wasted_bram_vcu118 <<
-                    " total wastd dsp " << wasted_dsp_vcu118 <<endl;
+                    " total wasted dsp " << wasted_dsp_vcu118 <<endl;
 
             cout <<endl;
     }
@@ -1561,7 +1561,7 @@ int vcu118_start_optimizer(param_to_solver *param, param_from_solver *to_sim)
     num_forbidden_slots = param->num_forbidden_slots;
     num_rows = param->num_rows;
     H =  param->num_clk_regs;
-    W =  param->width;  
+    W =  param->width;
 
     num_clk_regs = param->num_clk_regs;
     clb_per_tile = param->clb_per_tile;
