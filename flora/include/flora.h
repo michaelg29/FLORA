@@ -6,21 +6,21 @@
 #include "csv_data_manipulator.hpp"
 #include <string>
 
-/*                                                                         
-#ifdef WITH_PARTITIONING                                                 
-    #include "fine_grained.h"                                            
-    #ifdef FPGA_ZYNQ                                                     
-        #include "zynq_fine_grained.h"                                   
-    #elif FPGA_PYNQ                                                      
-        #include "pynq_fine_grained.h"                                   
-    #endif                                                               
-#else                                                                    
-    #ifdef FPGA_ZYNQ                                                     
-        #include "zynq.h"                                                
-    #elif FPGA_PYNQ                                                      
-        #include "pynq.h"                                                
-    #endif                                                               
-#endif 
+/*
+#ifdef WITH_PARTITIONING
+    #include "fine_grained.h"
+    #ifdef FPGA_ZYNQ
+        #include "zynq_fine_grained.h"
+    #elif FPGA_PYNQ
+        #include "pynq_fine_grained.h"
+    #endif
+#else
+    #ifdef FPGA_ZYNQ
+        #include "zynq.h"
+    #elif FPGA_PYNQ
+        #include "pynq.h"
+    #endif
+#endif
 */
 
 #include "fine_grained.h"
@@ -30,10 +30,12 @@
 #elif FPGA_PYNQ
     #include "pynq_fine_grained.h"
 //    #include "pynq.h"
-#elif FPGA_VC707 
+#elif FPGA_VC707
     #include "vc707_fine_grained.h"
-#elif FPGA_VCU118 
+#elif FPGA_VCU118
     #include "vcu118_fine_grained.h"
+#elif FPGA_VCU128
+    #include "vcu128_fine_grained.h"
 #endif
 
 namespace Ui {
@@ -63,7 +65,7 @@ typedef struct{
 
 #define MY_RAND() ((double)((double)rand()/(double)RAND_MAX))
 
-class flora 
+class flora
 {
 
 public:
@@ -78,10 +80,12 @@ public:
     vc707 *vc707_inst;
 #elif FPGA_VCU118
     vcu118 *vcu118_inst;
+#elif FPGA_VCU128
+    vcu128 *vcu128_inst;
 #endif
 
     unsigned long num_rm_partitions = 0;
-    
+
     //enum fpga_type type = ZYNQ;
     enum fpga_type type;
     unsigned long connections = 0;

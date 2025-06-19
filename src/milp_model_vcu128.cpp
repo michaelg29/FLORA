@@ -36,12 +36,7 @@ static vector<unsigned long> dsp_req_vcu128(MAX_SLOTS);
 
 static vcu128_fine_grained vcu128_coordinates;
 
-const unsigned long num_fbdn_edge = 32;
-//unsigned int beta_fbdn[3] = {1, 1};
-
-// restrict left and right boundaries of pblocks to not be adjacent to BRAM
-unsigned forbidden_boundaries_right[] = {3, 11, 17, 20, 25, 29, 34, 37, 42, 51, 57, 60, 68, 71, 92, 95, 99, 102, 107, 116, 122, 125, 133, 136, 141, 157, 160, 163, 174, 177, 183, 189};
-unsigned forbidden_boundaries_left[] =  {2, 10, 16, 19, 24, 28, 33, 36, 41, 50, 56, 59, 67, 70, 91, 94, 98, 101, 106, 115, 121, 124, 132, 135, 140, 156, 159, 162, 173, 176, 182, 188};
+const unsigned long num_fbdn_edge = 32+14; // DSP+BRAM
 
 int solve_milp_vcu128(param_from_solver *to_sim)
 {
@@ -604,65 +599,55 @@ int solve_milp_vcu128(param_from_solver *to_sim)
             model.addConstr(y[i] + h[i] <= H, "100");
         }
 
-        // TODO update numbers
-        #define VCU128_CLK_REG 28 // TODO
-        #define VCU128_WIDTH 280 // TODO
-        #define VCU128_NUM_ROWS 20 // TODO
-        #define VCU128_FORBIDDEN 3
-        #define VCU128_CLB_PER_TILE 60 // TODO
-        #define VCU128_BRAM_PER_TILE 12 // TODO
-        #define VCU128_DSP_PER_TILE 24 // TODO
-        #define VCU128_CLB_TOT  167527 // TODO
-        #define VCU128_BRAM_TOT  4032 // TODO
-        #define VCU128_DSP_TOT  9024 // TODO
-
-
-        //int bram_coords [VCU128_BRAM_PER_ROW+1] = {4, 13, ..., -1};
-        //int dsp_coords [VCU128_DSP_PER_ROW+1] = {7, 16, ..., -1};
-        //int obstr_coords [VCU128_OBSTR_PER_ROW+1] = {..., -1}
         int flora_x;
-        int bram_x, dsp_x, obstr_x;
+        int bram_x, dsp_x;
         int clb_offset;
         int constr_i;
-        int z_l[3][3];
-        for(i = 0; i < num_slots; i++) { // TODO what is num_slots
-            for(k = 0; k < 2; k++) { // TODO max bound of k
-                GRBLinExpr exp[3];
+        for(i = 0; i < num_slots; i++) {
+            for(k = 0; k < 2; k++) {
+                std::cout << "i=" << i << ", k=" << k << std::endl;
 
-                l = 0;
-                flora_x = 1;
+                GRBLinExpr exp[3];
+                int z_l[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+
+                flora_x = 0;
                 dsp_x = 0;
                 bram_x = 0;
-                obstr_x = 0;
                 clb_offset = 0;
                 constr_i = 1;
 
+                // first segment of piecewise function (no offset)
+                model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
+                model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
+                model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
+                model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
+                model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
+                model.addConstr(dsp_x >= dsp[i][k] - BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
+
                 // scan each x-coordinate for its type
                 for (flora_x = 0; flora_x < VCU128_WIDTH; ++flora_x) {
-                    //if (bram_coords[bram_x] == flora_x) {
+#ifdef FLORA_VERBOSE
+                    std::cout << "Resource @ x=" << flora_x << ", i=" << i << ", k=" << k << " is " << vcu128_coordinates.fg[flora_x].type_of_res << " " << z_l[2][0] << std::endl;
+#endif
                     if (vcu128_coordinates.fg[flora_x].type_of_res == BRAM) {
                         /******************************************************************
                         Constr 2.1: The same thing as constr 1.0.0 is done for the bram
                                       which has the following piecewise distribution on
                                       the fpga fabric
                         ******************************************************************/
-                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= flora_x - x[i][k], std::to_string(constr_i++));
-                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= x[i][k] - (flora_x - 1), std::to_string(constr_i++));
-
-                        if (bram_x == 0) {
-                            model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
-                            model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
-                        }
-                        else {
-                            model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]) -
-                                                               BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
-                            model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]) -
-                                                           BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
-                        }
+                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                        std::cout << "RAM: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << std::endl;
+#endif
 
                         ++bram_x;
+                        model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]) -
+                                                           BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
+                        model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]) -
+                                                       BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
+
                     }
-                    //else if (dsp_coords[dsp_x] == flora_x) {
                     else if (vcu128_coordinates.fg[flora_x].type_of_res == DSP) {
                         /******************************************************************
                         Constr 2.2: The same thing as constr 1.0.0 is done for the dsp
@@ -670,87 +655,81 @@ int solve_milp_vcu128(param_from_solver *to_sim)
                                       the fpga fabric
                         ******************************************************************/
 
-                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= flora_x - x[i][k], std::to_string(constr_i++));
-                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= x[i][k] - (flora_x - 1), std::to_string(constr_i++));
-
-                        if (dsp_x == 0) {
-                            model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
-                            model.addConstr(dsp_x >= dsp[i][k] - BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
-                        }
-                        else {
-                            model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++]) -
-                                                    BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
-                            model.addConstr(dsp_x >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][z_l[2][2]++]) -
-                                                    BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
-                        }
+                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                        std::cout << "DSP: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << std::endl;
+#endif
 
                         ++dsp_x;
+                        model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++]) -
+                                                BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
+                        model.addConstr(dsp_x >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][z_l[2][2]++]) -
+                                                BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
+
                     }
                     else {
                         continue;
                     }
 
-                    // disruption in CLB: new segment of piecewise function
                     /******************************************************************
                     Constr 2.0: The clb fingerprint on the FPGA is described using the following
                                 piecewise function.
                                 The piecewise function is then transformed into a set
                                 of MILP constraints using the intermediate variable z
                     ******************************************************************/
-                    model.addConstr(BIG_M * x[0][i][k][z_l[0][0]++] >= flora_x - x[i][k], std::to_string(constr_i++));
-                    model.addConstr(BIG_M * x[0][i][k][z_l[0][0]++] >= x[i][k] - (flora_x - 1), std::to_string(constr_i++));
-
-                    if (clb_offset == 0) {
-                        model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
-                        model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
-                    }
-                    else {
-                        model.addConstr(clb[i][k] >= (x[i][k] - clb_offset)  - BIG_M * (1 - z[0][i][k][z_l[0][1]++]) -
-                                                            BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
-                        model.addConstr(x[i][k] - clb_offset >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][z_l[0][2]++]) -
-                                                            BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
-                    }
+                    model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                    model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                    std::cout << "CLB: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << "; x[i][k] - " << clb_offset << std::endl;
+#endif
 
                     clb_offset++;
+                    model.addConstr(clb[i][k] >= (x[i][k] - clb_offset)  - BIG_M * (1 - z[0][i][k][z_l[0][1]++]) -
+                                                        BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
+                    model.addConstr(x[i][k] - clb_offset >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][z_l[0][2]++]) -
+                                                        BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
+
                 }
 
                 // end of row constraints
-                model.addConstr(BIG_M * z[0][i][k][l++] >= W + 1 - x[i][k], std::to_string(constr_i++));
-                model.addConstr(BIG_M * z[1][i][k][l++] >= W + 1 - x[i][k], std::to_string(constr_i++));
-                model.addConstr(BIG_M * z[2][i][k][l++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+                model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+                model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+                model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
 
                 for (int n = 0; n < 3; n++) {
-                    for(m = 0; m < l; m++) {
+                    for(m = 0; m < z_l[n][0]; m++) {
                         exp[n] += z[n][i][k][m];
                     }
-                    model.addConstr(exp[n] <= (l + 1) /2);
+                    model.addConstr(exp[n] <= (z_l[n][0] + 1) /2);
                 }
             }
 
             /*************************************************************************
             Constraint 4.1: partition edges cannot border BRAM or DSP slices
             **************************************************************************/
+            j = 0;
+            // scan each x-coordinate for its type
+            for (flora_x = 0; flora_x < VCU128_WIDTH; ++flora_x) {
+                if (vcu128_coordinates.fg[flora_x].type_of_res == BRAM ||
+                    vcu128_coordinates.fg[flora_x].type_of_res == DSP) {
+                    l = 0;
 
-            for(i = 0; i < num_slots; i++) {
-                j = 0;
-                // scan each x-coordinate for its type
-                for (flora_x = 0; flora_x < VCU128_WIDTH; ++flora_x) {
-                    if (vcu128_coordinates.fg[flora_x].type_of_res == BRAM ||
-                        vcu128_coordinates.fg[flora_x].type_of_res == DSP) {
-                        l = 0;
+#ifdef FLORA_VERBOSE
+                    std::cout << "x[i][0] - " << (flora_x) << "; x[i][1] - " << (flora_x + 1) << std::endl;
+#endif
 
-                        // left boundary
-                        model.addConstr(x[i][0] - (flora_x) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con");
-                        model.addConstr(x[i][0] - (flora_x) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_1");
-                        ++l;
+                    // left boundary
+                    model.addConstr(x[i][0] - (flora_x) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con");
+                    model.addConstr(x[i][0] - (flora_x) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_1");
+                    ++l;
 
-                        // right boundary
-                        model.addConstr(x[i][1] - (flora_x + 1) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con_2");
-                        model.addConstr(x[i][1] - (flora_x + 1) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_3");
+                    // right boundary
+                    model.addConstr(x[i][1] - (flora_x + 1) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con_2");
+                    model.addConstr(x[i][1] - (flora_x + 1) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_3");
 
-                        // increment number of forbidden boundaries
-                        j++;
-                    }
+                    // increment number of forbidden boundaries
+                    ++j;
                 }
             }
         }
@@ -816,18 +795,18 @@ int solve_milp_vcu128(param_from_solver *to_sim)
 //                exp_dsp_fbdn  += tau_fbdn[0][2][i][j];
             }
 
-            model.addConstr(clb_per_tile * (exp_clb /*- exp_clb_fbdn*/) >= clb_req_vc707[i],"68");
-            model.addConstr(wasted[i][0] == clb_per_tile * (exp_clb /*- exp_clb_fbdn*/) - clb_req_vc707[i],"168"); //wasted clbs
+            model.addConstr(clb_per_tile * (exp_clb /*- exp_clb_fbdn*/) >= clb_req_vcu128[i],"68");
+            model.addConstr(wasted[i][0] == clb_per_tile * (exp_clb /*- exp_clb_fbdn*/) - clb_req_vcu128[i],"168"); //wasted clbs
 
 //            model.addConstr(clb_fbdn_tot[i] == exp_clb_fbdn, "169");
 
-            model.addConstr(bram_per_tile * (exp_bram /*- exp_bram_fbdn*/) >= bram_req_vc707[i],"69");
-            model.addConstr(wasted[i][1] == bram_per_tile * (exp_bram /*- exp_bram_fbdn*/) - bram_req_vc707[i],"169"); //wasted brams
+            model.addConstr(bram_per_tile * (exp_bram /*- exp_bram_fbdn*/) >= bram_req_vcu128[i],"69");
+            model.addConstr(wasted[i][1] == bram_per_tile * (exp_bram /*- exp_bram_fbdn*/) - bram_req_vcu128[i],"169"); //wasted brams
 
 //            model.addConstr(bram_fbdn_tot[i] == exp_bram_fbdn, "169");
 
-            model.addConstr(dsp_per_tile * (exp_dsp /*- exp_dsp_fbdn*/) >= dsp_req_vc707[i],"70");
-            model.addConstr(wasted[i][2] == dsp_per_tile * (exp_dsp /*- exp_dsp_fbdn*/) - dsp_req_vc707[i], "170");
+            model.addConstr(dsp_per_tile * (exp_dsp /*- exp_dsp_fbdn*/) >= dsp_req_vcu128[i],"70");
+            model.addConstr(wasted[i][2] == dsp_per_tile * (exp_dsp /*- exp_dsp_fbdn*/) - dsp_req_vcu128[i], "170");
 
 //            model.addConstr(dsp_fbdn_tot[i] == exp_dsp_fbdn, "169");
         }
@@ -879,7 +858,7 @@ int solve_milp_vcu128(param_from_solver *to_sim)
         Constraint 4.1:
         **************************************************************************/
 
-        for(i = 0; i < num_slots; i++) {
+        /*for(i = 0; i < num_slots; i++) {
             for (j = 0; j <  num_fbdn_edge; j++) {
                 l = 0;
                 model.addConstr(x[i][0] - forbidden_boundaries_left[j] <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con");
@@ -888,7 +867,7 @@ int solve_milp_vcu128(param_from_solver *to_sim)
                 model.addConstr(x[i][1] - forbidden_boundaries_right[j] <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con_2");
                 model.addConstr(x[i][1] - forbidden_boundaries_right[j] >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_3");
             }
-        }
+        }*/
 
 
         //Objective function parameters definition
@@ -924,7 +903,7 @@ int solve_milp_vcu128(param_from_solver *to_sim)
                 obj_x += dist[i][j][0];
                 obj_y += dist[i][j][1];
             }
-    }
+        }
 
         for(i = 0; i < num_slots; i++) {
             obj_wasted_clb  += wasted[i][0];
@@ -1004,7 +983,7 @@ int solve_milp_vcu128(param_from_solver *to_sim)
             cout <<endl;
             cout << "total wasted clb " <<wasted_clb_vcu128 <<
                     " total wasted bram " <<wasted_bram_vcu128 <<
-                    " total wastd dsp " << wasted_dsp_vcu128 <<endl;
+                    " total wasted dsp " << wasted_dsp_vcu128 <<endl;
 
             cout <<endl;
     }

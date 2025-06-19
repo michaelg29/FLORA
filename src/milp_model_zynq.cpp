@@ -228,7 +228,7 @@ int solve_milp(param_from_solver *to_sim)
         }
 
         /**********************************************************************
-        The following 3 variables record the total number of CLB, BRAM and DSP 
+        The following 3 variables record the total number of CLB, BRAM and DSP
         in forbidden regions.
         ***********************************************************************/
 
@@ -1326,7 +1326,7 @@ int solve_milp(param_from_solver *to_sim)
             }
 
                 cout << "total wasted clb " <<wasted_clb_zynq << " total wasted bram " <<
-                        wasted_bram_zynq << " total wastd dsp " << wasted_dsp_zynq <<endl;
+                        wasted_bram_zynq << " total wasted dsp " << wasted_dsp_zynq <<endl;
                 cout << " total wire length " << w_x << "  " << w_y << "  " <<  w_y + w_x << endl;
          }
 

@@ -3,6 +3,7 @@
 #include "gurobi_c++.h"
 #include "milp_solver_interface.h"
 #include "fpga.h"
+#include "vc707_fine_grained.h"
 
 using namespace std;
 
@@ -17,6 +18,8 @@ static unsigned long num_rows;
 static unsigned long num_forbidden_slots;
 static unsigned long BIG_M = 100000000;
 static unsigned long num_clk_regs;
+
+static vc707_fine_grained vc707_coordinates;
 
 static unsigned long wasted_clb_vc707, wasted_bram_vc707, wasted_dsp_vc707;
 
@@ -33,6 +36,7 @@ static vector<unsigned long> clb_req_vc707(MAX_SLOTS);
 static vector<unsigned long> bram_req_vc707(MAX_SLOTS);
 static vector<unsigned long> dsp_req_vc707(MAX_SLOTS);
 
+// Cannot start or end a pblock with a BRAM/DSP slice
 const unsigned long num_fbdn_edge = 35;
 unsigned int beta_fbdn[3] = {1, 1};
 unsigned forbidden_boundaries_right[] = {5, 11, 14, 20, 23, 26, 29, 34, 37, 40, 45, 48, 51, 63, 66, 69, 74, 77, 80, 85, 88, 91, 96, 99, 102, 107, 110, 113, 118, 121, 124, 127, 133, 136, 142};
@@ -51,7 +55,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
 
             delta_size = num_slots;
             //delta_size = num_forbidden_slots;
-        
+
 
         //Variable definition
 
@@ -222,7 +226,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
         }
 
         /**********************************************************************
-        The following 3 variables record the total number of CLB, BRAM and DSP 
+        The following 3 variables record the total number of CLB, BRAM and DSP
         in forbidden regions.
         ***********************************************************************/
 
@@ -600,767 +604,1679 @@ int solve_milp_vc707(param_from_solver *to_sim)
                 model.addConstr(y[i] <= (H - beta[i][j] * (H - j)), "99");
             model.addConstr(y[i] + h[i] <= H, "100");
         }
+
+#ifndef FLORA_AUTOGEN_CONSTR
+#ifndef FLORA_CORRECTED
         //Resource Constraints
-        /******************************************************************
-        Constr 2.0: The clb fingerprint on the FPGA is described using the following
-                    piecewise function.
-                    x        0  <= x < 5
-                    x-1      5  <= x < 11
-                    x-2      11  <= x < 14
-                    x-3      14 <= x < 20
-                    x-4      20 <= x < 23
-                    x-5      23 <= x < 26
-                    x-6      26 <= x < 29
-                    x-7      29 <= x < 32
-                    x-9      32 <= x < 36
-                    x-10     36 <= x < 39
-                    x-11     39 <= x < 42
-                    x-12     42 <= x < 47
-                    x-13     47 <= x < 50
-                    x-14     50 <= x < 53
-                    x-15     53 <= x < 62 
-                    x-16     62 <= x < 66
-                    x-17     66 <= x < 69
-                    x-18     69 <= x < 72
-                    x-19     72 <= x < 75
-                    x-20     75 <= x < 78
-                    x-21     78 <= x < 81 
-                    x-22     81 <= x < 84
-                    x-23     84 <= x < 89
-                    x-24     89 <= x < 92
-                    x-25     92 <= x < 95
-                    x-26     95 <= x < 100
-                    x-27     100 <= x < 103
-                    x-28     103 <= x < 106
-                    x-29     106 <= x < 111
-                    x-30     111 <= x < 114
-                    x-31     114 <= x < 117
-                    x-32     117 <= x < 120
-                    x-34     120 <= x < 124
-                    x-35     124 <= x < 127
-                    x-36     127 <= x < 130
-                    x-37     130 <= x < 133
-                    x-38     133 <= x < 139
-                    x-39     139 <= x < 142
-                    x-40     142 <= x < 148
-                    x-41     148 <= x < W+1
-
-                    The piecewise function is then transformed into a set
-                    of MILP constraints using the intermediate variable z
-        ******************************************************************/
-        for(i =0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                GRBLinExpr exp;
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 5 - x[i][k], "1");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 4, "2");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 11 - x[i][k], "3");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 10, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 14 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 13,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 20 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 19, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 23 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 22, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 26 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 25, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 29 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 28, "14");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 34 - x[i][k], "3");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 33, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 37 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 36,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 40 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 39, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 45 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 44, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 48 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 47, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 51 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 50, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 63 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 62,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 66 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 65, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 69 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 68, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 74 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 73, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 77 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 76, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 80 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 79,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 85 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 84, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 88 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 87, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 91 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 90, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 96 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 95, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 99 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 98,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 102 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 101, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 107 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 106, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 110 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 109, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 113 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 112, "14");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 118 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 117,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 121 - x[i][k], "7");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 120, "8");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 124 - x[i][k], "9");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 123, "10");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 127 - x[i][k], "11");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 126, "12");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 136 - x[i][k], "13");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 135, "4");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= 142 - x[i][k], "5");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 141,  "6");
-                model.addConstr(BIG_M * z[0][i][k][l++]  >= W + 1 - x[i][k],  "15");
-
-                for(m = 0; m < l; m++)
-                    exp += z[0][i][k][m];
-
-                model.addConstr(exp <= (l + 1) /2);
-            }
-        }
-
-        //constr for clbs
-        for(i = 0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][l++]), "8");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 1)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "9");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 2)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "10");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 3)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "11");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 4)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 5)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "13");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 6)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 7)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 9)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 10)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 11)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-                
-                model.addConstr(clb[i][k] >= (x[i][k] - 12)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 13)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 14)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-                
-                model.addConstr(clb[i][k] >= (x[i][k] - 15)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 16)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 17)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-            
-                model.addConstr(clb[i][k] >= (x[i][k] - 18)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 19)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 20)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-                
-                model.addConstr(clb[i][k] >= (x[i][k] - 21)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 22)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 23)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 24)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-                
-                model.addConstr(clb[i][k] >= (x[i][k] - 25)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 26)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 27)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-                
-                model.addConstr(clb[i][k] >= (x[i][k] - 28)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 29)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 30)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-            
-                model.addConstr(clb[i][k] >= (x[i][k] - 31)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 32)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 34)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 35)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 36)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-            
-                model.addConstr(clb[i][k] >= (x[i][k] - 37)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 38)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "14");
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 39)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");           
-
-                model.addConstr(clb[i][k] >= (x[i][k] - 40)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "15");
-            
-                model.addConstr(clb[i][k] >= (x[i][k] - 41)  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                           BIG_M * (1 - z[0][i][k][l++]), "12");
-        }
-             
-            
-            for( k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][l++]), "16");
-
-                model.addConstr(x[i][k] - 1 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "17");
-
-                model.addConstr(x[i][k] - 2 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "18");
-
-                model.addConstr(x[i][k] - 3 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "19");
-
-                model.addConstr(x[i][k] - 4 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 5 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 6 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 7 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-
-                model.addConstr(x[i][k] - 9 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 10 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 11 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-            
-                model.addConstr(x[i][k] - 12 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "17");
-
-                model.addConstr(x[i][k] - 13 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "18");
-
-                model.addConstr(x[i][k] - 14 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "19");
-
-                model.addConstr(x[i][k] - 15 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 16 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 17 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-
-                model.addConstr(x[i][k] - 18 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 19 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 20 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 21 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-
-                model.addConstr(x[i][k] - 22 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "18");
-
-                model.addConstr(x[i][k] - 23 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "19");
-
-                model.addConstr(x[i][k] - 24 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 25 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 26 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 27 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-
-                model.addConstr(x[i][k] - 28 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 29 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 30 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 31 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-          
-                model.addConstr(x[i][k] - 32 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "18");
-
-                model.addConstr(x[i][k] - 34 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "19");
-
-                model.addConstr(x[i][k] - 35 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 36 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 37 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-
-                model.addConstr(x[i][k] - 38 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "20");
-
-                model.addConstr(x[i][k] - 39 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "21");
-
-                model.addConstr(x[i][k] - 40 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "22");
-
-                model.addConstr(x[i][k] - 41 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
-                                                       BIG_M * (1 - z[0][i][k][l++]), "23");
-            
-            }
-        }
-
-        /******************************************************************
-        Constr 2.1: The same thing as constr 1.0.0 is done for the bram
-                      which has the following piecewise distribution on
-                      the fpga fabric
-                    0     0  <=  x  < 5
-                    1     5  <=  x  < 11
-                    2     11 <=  x  < 23
-                    3     23  <=  x < 29
-                    4     29 <=  x  < 39
-                    5     39 <=  x  < 50
-                    6     50 <=  x  < 69
-                    7     69 <=  x  < 81
-                    8     81 <=  x < 92
-                    9     92 <=  x  < 103
-                    10     103 <=  x  < 114
-                    11     114 <=  x  < 124
-                    12     124 <=  x  < 130
-                    13     130 <=  x < 142
-                    14     142 <=  x  < 148
-                    15     148 <=  x  < 49
-
-        ******************************************************************/
-        for(i =0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                GRBLinExpr exp;
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 5 - x[i][k], "32");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 4, "33");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 11 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 10, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 23 - x[i][k], "36");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 22, "37");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 29 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 28, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 37 - x[i][k], "36");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 36, "37");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 48 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 47, "33");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 66 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 65, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 77 - x[i][k], "36");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 76, "37");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 88 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 87, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 99 - x[i][k], "36");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 98, "37");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 110 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 109, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 118 - x[i][k], "32");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 117, "33");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 124 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 123, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 136 - x[i][k], "36");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 135, "37");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= 142 - x[i][k], "34");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 141, "35");
-                model.addConstr(BIG_M * z[1][i][k][l++]  >= W + 1 - x[i][k], "38");
-
-                for(m = 0; m < l; m++)
-                    exp += z[1][i][k][m];
-
-                model.addConstr(exp <= (l + 1) /2);
-            }
-        }
-
-
-        for(i = 0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(bram[i][k] >= 0 - BIG_M * (1 - z[1][i][k][l++]), "39");
-
-                model.addConstr(bram[i][k] >= 1  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "40");
-
-                model.addConstr(bram[i][k] >= 2  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "41");
-
-                model.addConstr(bram[i][k] >= 3  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 4  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "41");
-
-                model.addConstr(bram[i][k] >= 5  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 6  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 7  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "40");
-
-                model.addConstr(bram[i][k] >= 8  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "40");
-
-                model.addConstr(bram[i][k] >= 9  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "41");
-
-                model.addConstr(bram[i][k] >= 10  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 11  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "41");
-
-                model.addConstr(bram[i][k] >= 12  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 13  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 14  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "41");
-
-                model.addConstr(bram[i][k] >= 15  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-                model.addConstr(bram[i][k] >= 16  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                           BIG_M * (1 - z[1][i][k][l++]), "42");
-
-            }
-
-            for( k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(0 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
-
-                model.addConstr(1 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(2 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "45");
-
-                model.addConstr(3 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "46");
-
-                model.addConstr(4 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(5 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "45");
-
-                model.addConstr(6 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "46");
-                
-                model.addConstr(7 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(8 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(9 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "45");
-
-                model.addConstr(10 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "46");
-
-                model.addConstr(11 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(12 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "45");
-
-                model.addConstr(13 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "46");
-        
-                model.addConstr(14 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
-
-                model.addConstr(15 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "44");
-
-                model.addConstr(16 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
-                                                       BIG_M * (1 - z[1][i][k][l++]), "45");
-            }
-        }
-
-
-        /******************************************************************
-        Constr 2.2: Same thing is done for the dsp on the FPGA
-                    0     0  <=  x  < 14
-                    1     14  <=  x  < 20
-                    2     20  <=  x  < 26
-                    3     26  <=  x  < 36
-                    4     36  <=  x  < 42
-                    5     42  <=  x  < 47
-                    6     47  <=  x  < 53
-                    7     53  <=  x  < 66
-                    8     66  <=  x  < 72
-                    9     72  <=  x  < 78
-                    10     78  <=  x  < 84
-                    11     84  <=  x  < 89
-                    12     89  <=  x  < 95
-                    13     95  <=  x  < 100
-                    14     100 <=  x  < 106
-                    15     106 <=  x  < 111
-                    16     111 <=  x  < 117
-                    17     117 <=  x  < 127
-                    18     127 <=  x  < 133
-                    19     133 <=  x  < 139
-                    20     139 <=  x  < W
-        ******************************************************************/
-        for(i =0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                GRBLinExpr exp;
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 14 - x[i][k], "47");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 13, "48");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 20 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 19, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 26 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 25, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 34 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 33, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 40 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 39, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 45 - x[i][k], "47");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 44, "48");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 51 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 50, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 63 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 62, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 69 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 68, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 74 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 73, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 80 - x[i][k], "47");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 79, "48");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 85 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 84, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 91 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 90, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 96 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 95, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 102 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 101, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 107 - x[i][k], "47");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 106, "48");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 113 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 112, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 121 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 120, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 127 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 126, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= 133 - x[i][k], "49");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 132, "50");
-                model.addConstr(BIG_M * z[2][i][k][l++]  >= W + 1 - x[i][k], "51");
-
-                for(m = 0; m < l; m++)
-                    exp += z[2][i][k][m];
-
-                model.addConstr(exp <= (l + 1) /2);
-            }
-        }
-
-        for(i = 0; i < num_slots; i++) {
-            for(k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(dsp[i][k] >= (0 - BIG_M * (1 - z[2][i][k][l++])), "52");
-
-                model.addConstr(dsp[i][k] >= (1  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (2  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (3  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (4  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (5  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-                
-                model.addConstr(dsp[i][k] >= (6  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (7  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (8  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (9  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (10  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (11  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-                
-                model.addConstr(dsp[i][k] >= (12  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (13  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (14  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (15  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (16  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (17  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (18  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-
-                model.addConstr(dsp[i][k] >= (19  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "54");
-
-                model.addConstr(dsp[i][k] >= (20  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                  BIG_M * (1 - z[2][i][k][l++])), "53");
-            }
-
-            for( k = 0; k < 2; k++) {
-                l = 0;
-                model.addConstr(0 >= dsp[i][k] - BIG_M * (1 - z[2][i][k][l++]), "55");
-
-                model.addConstr(1 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(2 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(3 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(4 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-      
-                model.addConstr(5 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(6 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(7 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(8 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(9 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(10 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(11 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(12 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(13 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(14 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(15 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(16 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(17 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(18 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-
-                model.addConstr(19 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "57");
-
-                model.addConstr(20 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
-                                                    BIG_M * (1 - z[2][i][k][l++]), "56");
-            }
+       /******************************************************************
+       Constr 2.0: The clb fingerprint on the FPGA is described using the following
+                  piecewise function.
+                  x        0  <= x < 5
+                  x-1      5  <= x < 11
+                  x-2      11  <= x < 14
+                  x-3      14 <= x < 20
+                  x-4      20 <= x < 23
+                  x-5      23 <= x < 26
+                  x-6      26 <= x < 29
+                  x-7      29 <= x < 32
+                  x-9      32 <= x < 36 // does not exist, rest of x-coordinates are right-offset by 2
+                  x-10     36 <= x < 39
+                  x-11     39 <= x < 42
+                  x-12     42 <= x < 47
+                  x-13     47 <= x < 50
+                  x-14     50 <= x < 53
+                  x-15     53 <= x < 62
+                  x-16     62 <= x < 66
+                  x-17     66 <= x < 69
+                  x-18     69 <= x < 72
+                  x-19     72 <= x < 75
+                  x-20     75 <= x < 78
+                  x-21     78 <= x < 81
+                  x-22     81 <= x < 84
+                  x-23     84 <= x < 89
+                  x-24     89 <= x < 92
+                  x-25     92 <= x < 95
+                  x-26     95 <= x < 100
+                  x-27     100 <= x < 103
+                  x-28     103 <= x < 106
+                  x-29     106 <= x < 111
+                  x-30     111 <= x < 114
+                  x-31     114 <= x < 117
+                  x-32     117 <= x < 120
+                  x-34     120 <= x < 124
+                  x-35     124 <= x < 127
+                  x-36     127 <= x < 130
+                  x-37     130 <= x < 133
+                  x-38     133 <= x < 139
+                  x-39     139 <= x < 142
+                  x-40     142 <= x < 148
+                  x-41     148 <= x < W+1
+
+                  The piecewise function is then transformed into a set
+                  of MILP constraints using the intermediate variable z
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 5 - x[i][k], "1");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 4, "2");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 11 - x[i][k], "3");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 10, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 14 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 13,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 20 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 19, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 23 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 22, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 26 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 25, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 29 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 28, "14");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 34 - x[i][k], "3");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 33, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 37 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 36,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 40 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 39, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 45 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 44, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 48 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 47, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 51 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 50, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 63 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 62,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 66 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 65, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 69 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 68, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 74 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 73, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 77 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 76, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 80 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 79,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 85 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 84, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 88 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 87, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 91 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 90, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 96 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 95, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 99 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 98,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 102 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 101, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 107 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 106, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 110 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 109, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 113 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 112, "14");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 118 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 117,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 121 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 120, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 124 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 123, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 127 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 126, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 136 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 135, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 142 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 141,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= W + 1 - x[i][k],  "15");
+
+              for(m = 0; m < l; m++)
+                  exp += z[0][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
        }
+
+       //constr for clbs
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][l++]), "8");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 1)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "9");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 2)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "10");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 3)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "11");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 4)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 5)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "13");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 6)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 7)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 9)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 10)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 11)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 12)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 13)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 14)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 15)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 16)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 17)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 18)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 19)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 20)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 21)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 22)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 23)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 24)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 25)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 26)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 27)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 28)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 29)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 30)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 31)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 32)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 34)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 35)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 36)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 37)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 38)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 39)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 40)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 41)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+       }
+
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][l++]), "16");
+
+              model.addConstr(x[i][k] - 1 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "17");
+
+              model.addConstr(x[i][k] - 2 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 3 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 4 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 5 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 6 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 7 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 9 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 10 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 11 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 12 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "17");
+
+              model.addConstr(x[i][k] - 13 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 14 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 15 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 16 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 17 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 18 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 19 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 20 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 21 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 22 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 23 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 24 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 25 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 26 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 27 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 28 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 29 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 30 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 31 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 32 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 34 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 35 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 36 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 37 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 38 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 39 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 40 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 41 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+          }
+       }
+
+       /******************************************************************
+       Constr 2.1: The same thing as constr 1.0.0 is done for the bram
+                    which has the following piecewise distribution on
+                    the fpga fabric
+                  0     0  <=  x  < 5
+                  1     5  <=  x  < 11
+                  2     11 <=  x  < 23
+                  3     23  <=  x < 29
+                  4     29 <=  x  < 39
+                  5     39 <=  x  < 50
+                  6     50 <=  x  < 69
+                  7     69 <=  x  < 81
+                  8     81 <=  x < 92
+                  9     92 <=  x  < 103
+                  10     103 <=  x  < 114
+                  11     114 <=  x  < 124
+                  12     124 <=  x  < 130
+                  13     130 <=  x < 142
+                  14     142 <=  x  < 148
+                  15     148 <=  x  < 49
+
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 5 - x[i][k], "32");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 4, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 11 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 10, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 23 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 22, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 29 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 28, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 37 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 36, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 48 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 47, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 66 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 65, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 77 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 76, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 88 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 87, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 99 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 98, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 110 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 109, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 118 - x[i][k], "32");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 117, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 124 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 123, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 136 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 135, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 142 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 141, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= W + 1 - x[i][k], "38");
+
+              for(m = 0; m < l; m++)
+                  exp += z[1][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
+       }
+
+
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(bram[i][k] >= 0 - BIG_M * (1 - z[1][i][k][l++]), "39");
+
+              model.addConstr(bram[i][k] >= 1  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 2  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 3  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 4  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 5  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 6  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 7  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 8  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 9  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 10  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 11  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 12  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 13  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 14  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 15  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 16  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+          }
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(0 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
+
+              model.addConstr(1 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(2 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(3 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(4 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(5 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(6 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(7 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(8 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(9 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(10 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(11 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(12 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(13 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(14 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
+
+              model.addConstr(15 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(16 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+          }
+       }
+
+
+       /******************************************************************
+       Constr 2.2: Same thing is done for the dsp on the FPGA
+                  0     0  <=  x  < 14
+                  1     14  <=  x  < 20
+                  2     20  <=  x  < 26
+                  3     26  <=  x  < 36
+                  4     36  <=  x  < 42
+                  5     42  <=  x  < 47
+                  6     47  <=  x  < 53
+                  7     53  <=  x  < 66
+                  8     66  <=  x  < 72
+                  9     72  <=  x  < 78
+                  10     78  <=  x  < 84
+                  11     84  <=  x  < 89
+                  12     89  <=  x  < 95
+                  13     95  <=  x  < 100
+                  14     100 <=  x  < 106
+                  15     106 <=  x  < 111
+                  16     111 <=  x  < 117
+                  17     117 <=  x  < 127
+                  18     127 <=  x  < 133
+                  19     133 <=  x  < 139
+                  20     139 <=  x  < W
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 14 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 13, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 20 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 19, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 26 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 25, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 34 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 33, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 40 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 39, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 45 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 44, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 51 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 50, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 63 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 62, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 69 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 68, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 74 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 73, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 80 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 79, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 85 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 84, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 91 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 90, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 96 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 95, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 102 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 101, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 107 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 106, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 113 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 112, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 121 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 120, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 127 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 126, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 133 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 132, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= W + 1 - x[i][k], "51");
+
+              for(m = 0; m < l; m++)
+                  exp += z[2][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
+       }
+
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(dsp[i][k] >= (0 - BIG_M * (1 - z[2][i][k][l++])), "52");
+
+              model.addConstr(dsp[i][k] >= (1  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (2  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (3  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (4  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (5  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (6  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (7  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (8  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (9  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (10  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (11  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (12  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (13  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (14  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (15  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (16  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (17  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (18  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (19  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (20  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+          }
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(0 >= dsp[i][k] - BIG_M * (1 - z[2][i][k][l++]), "55");
+
+              model.addConstr(1 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(2 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(3 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(4 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(5 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(6 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(7 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(8 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(9 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(10 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(11 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(12 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(13 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(14 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(15 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(16 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(17 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(18 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(19 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(20 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+          }
+       }
+
+#else
+
+/******************************************************************
+       Constr 2.0: The clb fingerprint on the FPGA is described using the following
+                  piecewise function.
+                  x        0  <= x < 5
+                  x-1      5  <= x < 11
+                  x-2      11  <= x < 14
+                  x-3      14 <= x < 20
+                  x-4      20 <= x < 23
+                  x-5      23 <= x < 26
+                  x-6      26 <= x < 29
+                  x-7      29 <= x < 32
+                  x-9      32 <= x < 36 // does not exist, rest of x-coordinates are right-offset by 2
+                  x-10     36 <= x < 39
+                  x-11     39 <= x < 42
+                  x-12     42 <= x < 47
+                  x-13     47 <= x < 50
+                  x-14     50 <= x < 53
+                  x-15     53 <= x < 62
+                  x-16     62 <= x < 66
+                  x-17     66 <= x < 69
+                  x-18     69 <= x < 72
+                  x-19     72 <= x < 75
+                  x-20     75 <= x < 78
+                  x-21     78 <= x < 81
+                  x-22     81 <= x < 84
+                  x-23     84 <= x < 89
+                  x-24     89 <= x < 92
+                  x-25     92 <= x < 95
+                  x-26     95 <= x < 100
+                  x-27     100 <= x < 103
+                  x-28     103 <= x < 106
+                  x-29     106 <= x < 111
+                  x-30     111 <= x < 114
+                  x-31     114 <= x < 117
+                  x-32     117 <= x < 120
+                  x-34     120 <= x < 124
+                  x-35     124 <= x < 127
+                  x-36     127 <= x < 130
+                  x-37     130 <= x < 133
+                  x-38     133 <= x < 139
+                  x-39     139 <= x < 142
+                  x-40     142 <= x < 148
+                  x-41     148 <= x < W+1
+
+                  The piecewise function is then transformed into a set
+                  of MILP constraints using the intermediate variable z
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 5 - x[i][k], "1");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 4, "2");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 11 - x[i][k], "3");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 10, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 14 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 13,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 20 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 19, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 23 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 22, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 26 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 25, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 29 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 28, "14");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 34 - x[i][k], "3");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 33, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 37 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 36,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 40 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 39, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 45 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 44, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 48 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 47, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 51 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 50, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 63 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 62,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 66 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 65, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 69 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 68, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 74 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 73, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 77 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 76, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 80 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 79,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 85 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 84, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 88 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 87, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 91 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 90, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 96 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 95, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 99 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 98,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 102 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 101, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 107 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 106, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 110 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 109, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 113 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 112, "14");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 118 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 117,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 121 - x[i][k], "7");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 120, "8");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 124 - x[i][k], "9");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 123, "10");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 127 - x[i][k], "11");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 126, "12");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 133 - x[i][k], "13"); // MG
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 132, "4"); // MG
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 136 - x[i][k], "13");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 135, "4");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= 142 - x[i][k], "5");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= x[i][k] - 141,  "6");
+              model.addConstr(BIG_M * z[0][i][k][l++]  >= W + 1 - x[i][k],  "15");
+
+              for(m = 0; m < l; m++)
+                  exp += z[0][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
+       }
+
+       //constr for clbs
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][l++]), "8");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 1)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "9");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 2)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "10");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 3)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "11");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 4)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 5)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "13");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 6)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 7)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 8)  - BIG_M * (1 - z[0][i][k][l++]) - // MG
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15"); // MG
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 9)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 10)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 11)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 12)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 13)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 14)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 15)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 16)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 17)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 18)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 19)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 20)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 21)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 22)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 23)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 24)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 25)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 26)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 27)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 28)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 29)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 30)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 31)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 32)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 34)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 35)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              /*model.addConstr(clb[i][k] >= (x[i][k] - 36)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 37)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 38)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "14");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 39)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 40)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "15");
+
+              model.addConstr(clb[i][k] >= (x[i][k] - 41)  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                         BIG_M * (1 - z[0][i][k][l++]), "12");*/
+       }
+
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][l++]), "16");
+
+              model.addConstr(x[i][k] - 1 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "17");
+
+              model.addConstr(x[i][k] - 2 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 3 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 4 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 5 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 6 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 7 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 8 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) - // MG
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21"); // MG
+
+              model.addConstr(x[i][k] - 9 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 10 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 11 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 12 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "17");
+
+              model.addConstr(x[i][k] - 13 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 14 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 15 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 16 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 17 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 18 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 19 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 20 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 21 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 22 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 23 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 24 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 25 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 26 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 27 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 28 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 29 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 30 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 31 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 32 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "18");
+
+              model.addConstr(x[i][k] - 34 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "19");
+
+              model.addConstr(x[i][k] - 35 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              /*model.addConstr(x[i][k] - 36 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 37 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");
+
+              model.addConstr(x[i][k] - 38 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "20");
+
+              model.addConstr(x[i][k] - 39 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "21");
+
+              model.addConstr(x[i][k] - 40 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "22");
+
+              model.addConstr(x[i][k] - 41 >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][l++]) -
+                                                     BIG_M * (1 - z[0][i][k][l++]), "23");*/
+
+          }
+       }
+
+       /******************************************************************
+       Constr 2.1: The same thing as constr 1.0.0 is done for the bram
+                    which has the following piecewise distribution on
+                    the fpga fabric
+                  0     0  <=  x  < 5
+                  1     5  <=  x  < 11
+                  2     11 <=  x  < 23
+                  3     23  <=  x < 29
+                  4     29 <=  x  < 39
+                  5     39 <=  x  < 50
+                  6     50 <=  x  < 69
+                  7     69 <=  x  < 81
+                  8     81 <=  x < 92
+                  9     92 <=  x  < 103
+                  10     103 <=  x  < 114
+                  11     114 <=  x  < 124
+                  12     124 <=  x  < 130
+                  13     130 <=  x < 142
+                  14     142 <=  x  < 148
+                  15     148 <=  x  < 49
+
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 5 - x[i][k], "32");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 4, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 11 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 10, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 23 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 22, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 29 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 28, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 37 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 36, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 48 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 47, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 66 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 65, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 77 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 76, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 88 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 87, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 99 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 98, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 110 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 109, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 118 - x[i][k], "32");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 117, "33");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 124 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 123, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 136 - x[i][k], "36");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 135, "37");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= 142 - x[i][k], "34");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= x[i][k] - 141, "35");
+              model.addConstr(BIG_M * z[1][i][k][l++]  >= W + 1 - x[i][k], "38");
+
+              for(m = 0; m < l; m++)
+                  exp += z[1][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
+       }
+
+
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(bram[i][k] >= 0 - BIG_M * (1 - z[1][i][k][l++]), "39");
+
+              model.addConstr(bram[i][k] >= 1  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 2  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 3  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 4  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 5  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 6  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 7  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 8  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "40");
+
+              model.addConstr(bram[i][k] >= 9  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 10  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 11  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 12  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 13  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              model.addConstr(bram[i][k] >= 14  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "41");
+
+              model.addConstr(bram[i][k] >= 15  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+
+              /*model.addConstr(bram[i][k] >= 16  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                         BIG_M * (1 - z[1][i][k][l++]), "42");
+*/
+          }
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(0 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
+
+              model.addConstr(1 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(2 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(3 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(4 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(5 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(6 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(7 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(8 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(9 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(10 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(11 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              model.addConstr(12 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");
+
+              model.addConstr(13 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "46");
+
+              model.addConstr(14 >= bram[i][k] - BIG_M * (1 - z[1][i][k][l++]), "43");
+
+              model.addConstr(15 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "44");
+
+              /*model.addConstr(16 >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][l++]) -
+                                                     BIG_M * (1 - z[1][i][k][l++]), "45");*/
+          }
+       }
+
+
+       /******************************************************************
+       Constr 2.2: Same thing is done for the dsp on the FPGA
+                  0     0  <=  x  < 14
+                  1     14  <=  x  < 20
+                  2     20  <=  x  < 26
+                  3     26  <=  x  < 36
+                  4     36  <=  x  < 42
+                  5     42  <=  x  < 47
+                  6     47  <=  x  < 53
+                  7     53  <=  x  < 66
+                  8     66  <=  x  < 72
+                  9     72  <=  x  < 78
+                  10     78  <=  x  < 84
+                  11     84  <=  x  < 89
+                  12     89  <=  x  < 95
+                  13     95  <=  x  < 100
+                  14     100 <=  x  < 106
+                  15     106 <=  x  < 111
+                  16     111 <=  x  < 117
+                  17     117 <=  x  < 127
+                  18     127 <=  x  < 133
+                  19     133 <=  x  < 139
+                  20     139 <=  x  < W
+       ******************************************************************/
+       for(i =0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              GRBLinExpr exp;
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 14 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 13, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 20 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 19, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 26 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 25, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 34 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 33, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 40 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 39, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 45 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 44, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 51 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 50, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 63 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 62, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 69 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 68, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 74 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 73, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 80 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 79, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 85 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 84, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 91 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 90, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 96 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 95, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 102 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 101, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 107 - x[i][k], "47");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 106, "48");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 113 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 112, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 121 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 120, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 127 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 126, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= 133 - x[i][k], "49");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= x[i][k] - 132, "50");
+              model.addConstr(BIG_M * z[2][i][k][l++]  >= W + 1 - x[i][k], "51");
+
+              for(m = 0; m < l; m++)
+                  exp += z[2][i][k][m];
+
+              model.addConstr(exp <= (l + 1) /2);
+          }
+       }
+
+       for(i = 0; i < num_slots; i++) {
+          for(k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(dsp[i][k] >= (0 - BIG_M * (1 - z[2][i][k][l++])), "52");
+
+              model.addConstr(dsp[i][k] >= (1  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (2  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (3  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (4  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (5  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (6  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (7  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (8  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (9  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (10  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (11  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (12  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (13  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (14  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (15  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (16  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (17  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (18  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+
+              model.addConstr(dsp[i][k] >= (19  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "54");
+
+              model.addConstr(dsp[i][k] >= (20  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                BIG_M * (1 - z[2][i][k][l++])), "53");
+          }
+
+          for( k = 0; k < 2; k++) {
+              l = 0;
+              model.addConstr(0 >= dsp[i][k] - BIG_M * (1 - z[2][i][k][l++]), "55");
+
+              model.addConstr(1 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(2 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(3 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(4 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(5 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(6 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(7 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(8 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(9 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(10 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(11 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(12 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(13 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(14 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(15 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(16 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(17 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(18 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+
+              model.addConstr(19 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "57");
+
+              model.addConstr(20 >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][l++]) -
+                                                  BIG_M * (1 - z[2][i][k][l++]), "56");
+          }
+       }
+
+#endif // FLORA_CORRECTED
+#else
+        int flora_x;
+        int bram_x, dsp_x;
+        int clb_offset;
+        int constr_i;
+        for(i = 0; i < num_slots; i++) {
+            for(k = 0; k < 2; k++) {
+                std::cout << "i=" << i << ", k=" << k << std::endl;
+
+                GRBLinExpr exp[3];
+                int z_l[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+
+                flora_x = 0;
+                dsp_x = 0;
+                bram_x = 0;
+                clb_offset = 0;
+                constr_i = 1;
+
+                // first segment of piecewise function (no offset)
+                model.addConstr(clb[i][k] >= x[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
+                model.addConstr(x[i][k] >= clb[i][k] - BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
+                model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
+                model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
+                model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
+                model.addConstr(dsp_x >= dsp[i][k] - BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
+
+                // scan each x-coordinate for its type
+                for (flora_x = 0; flora_x < VC707_WIDTH; ++flora_x) {
+#ifdef FLORA_VERBOSE
+                    std::cout << "Resource @ x=" << flora_x << ", i=" << i << ", k=" << k << " is " << vc707_coordinates.fg[flora_x].type_of_res << " " << z_l[2][0] << std::endl;
+#endif
+                    if (vc707_coordinates.fg[flora_x].type_of_res == BRAM) {
+                        /******************************************************************
+                        Constr 2.1: The same thing as constr 1.0.0 is done for the bram
+                                      which has the following piecewise distribution on
+                                      the fpga fabric
+                        ******************************************************************/
+                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                        model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++]  >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                        std::cout << "RAM: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << std::endl;
+#endif
+
+                        ++bram_x;
+                        model.addConstr(bram[i][k] >= bram_x  - BIG_M * (1 - z[1][i][k][z_l[1][1]++]) -
+                                                           BIG_M * (1 - z[1][i][k][z_l[1][1]++]), std::to_string(constr_i++));
+                        model.addConstr(bram_x >= (bram[i][k])  - BIG_M * (1 - z[1][i][k][z_l[1][2]++]) -
+                                                       BIG_M * (1 - z[1][i][k][z_l[1][2]++]), std::to_string(constr_i++));
+
+                    }
+                    else if (vc707_coordinates.fg[flora_x].type_of_res == DSP) {
+                        /******************************************************************
+                        Constr 2.2: The same thing as constr 1.0.0 is done for the dsp
+                                      which has the following piecewise distribution on
+                                      the fpga fabric
+                        ******************************************************************/
+
+                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                        model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++]  >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                        std::cout << "DSP: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << std::endl;
+#endif
+
+                        ++dsp_x;
+                        model.addConstr(dsp[i][k] >= (dsp_x - BIG_M * (1 - z[2][i][k][z_l[2][1]++]) -
+                                                BIG_M * (1 - z[2][i][k][z_l[2][1]++])), std::to_string(constr_i++));
+                        model.addConstr(dsp_x >= (dsp[i][k])  - BIG_M * (1 - z[2][i][k][z_l[2][2]++]) -
+                                                BIG_M * (1 - z[2][i][k][z_l[2][2]++]), std::to_string(constr_i++));
+
+                    }
+                    else {
+                        continue;
+                    }
+
+                    /******************************************************************
+                    Constr 2.0: The clb fingerprint on the FPGA is described using the following
+                                piecewise function.
+                                The piecewise function is then transformed into a set
+                                of MILP constraints using the intermediate variable z
+                    ******************************************************************/
+                    model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= (flora_x + 1) - x[i][k], std::to_string(constr_i++));
+                    model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= x[i][k] - (flora_x), std::to_string(constr_i++));
+#ifdef FLORA_VERBOSE
+                    std::cout << "CLB: " << (flora_x + 1) << " - x[i][k]; x - " << (flora_x) << "; x[i][k] - " << clb_offset << std::endl;
+#endif
+
+                    clb_offset++;
+                    model.addConstr(clb[i][k] >= (x[i][k] - clb_offset)  - BIG_M * (1 - z[0][i][k][z_l[0][1]++]) -
+                                                        BIG_M * (1 - z[0][i][k][z_l[0][1]++]), std::to_string(constr_i++));
+                    model.addConstr(x[i][k] - clb_offset >= (clb[i][k])  - BIG_M * (1 - z[0][i][k][z_l[0][2]++]) -
+                                                        BIG_M * (1 - z[0][i][k][z_l[0][2]++]), std::to_string(constr_i++));
+
+                }
+
+                // end of row constraints
+                model.addConstr(BIG_M * z[0][i][k][z_l[0][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+                model.addConstr(BIG_M * z[1][i][k][z_l[1][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+                model.addConstr(BIG_M * z[2][i][k][z_l[2][0]++] >= W + 1 - x[i][k], std::to_string(constr_i++));
+
+                for (int n = 0; n < 3; n++) {
+                    for(m = 0; m < z_l[n][0]; m++) {
+                        exp[n] += z[n][i][k][m];
+                    }
+                    model.addConstr(exp[n] <= (z_l[n][0] + 1) /2);
+                }
+            }
+
+            /*************************************************************************
+            Constraint 4.1: partition edges cannot border BRAM or DSP slices
+            **************************************************************************/
+            j = 0;
+            // scan each x-coordinate for its type
+            for (flora_x = 0; flora_x < VC707_WIDTH; ++flora_x) {
+                if (vc707_coordinates.fg[flora_x].type_of_res == BRAM ||
+                    vc707_coordinates.fg[flora_x].type_of_res == DSP) {
+                    l = 0;
+
+#ifdef FLORA_VERBOSE
+                    std::cout << "x[i][0] - " << (flora_x) << "; x[i][1] - " << (flora_x + 1) << std::endl;
+#endif
+
+                    // left boundary
+                    model.addConstr(x[i][0] - (flora_x) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con");
+                    model.addConstr(x[i][0] - (flora_x) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_1");
+                    ++l;
+
+                    // right boundary
+                    model.addConstr(x[i][1] - (flora_x + 1) <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con_2");
+                    model.addConstr(x[i][1] - (flora_x + 1) >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_3");
+
+                    // increment number of forbidden boundaries
+                    ++j;
+                }
+            }
+        }
+#endif // FLORA_AUTOGEN_CONSTR
 
       //constr for res
       /*********************************************************************
@@ -1376,18 +2292,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
                 model.addConstr(tau[0][i][j] >= (clb[i][1] - clb[i][0]) - (1 - beta[i][j]) * clb_max, "60");
                 model.addConstr(tau[0][i][j] >= 0, "15");
 
-/*                //CLB_FBDN 0
-                model.addConstr(tau_fbdn[0][0][i][j] <= 100000 * (beta_fbdn[j] + beta[i][j] - 1), "58");
-                model.addConstr(tau_fbdn[0][0][i][j] <= clb_fbdn[0][i][1] - clb_fbdn[0][i][0], "59");
-                model.addConstr(tau_fbdn[0][0][i][j] >= (clb_fbdn[0][i][1] - clb_fbdn[0][i][0]) - (2 - beta[i][j] - beta_fbdn[j]) * clb_max, "60");
-                model.addConstr(tau_fbdn[0][0][i][j] >= 0, "15");
 
-                //CLB_FBDN 1
-                model.addConstr(tau_fbdn[1][0][i][j] <= 10000 * (beta_fbdn[j] + beta[i][j] - 1),  "58");
-                model.addConstr(tau_fbdn[1][0][i][j] <= clb_fbdn[1][i][1] - clb_fbdn[1][i][0], "59");
-                model.addConstr(tau_fbdn[1][0][i][j] >= (clb_fbdn[1][i][1] - clb_fbdn[1][i][0]) - (2 - beta[i][j] - beta_fbdn[j]) * clb_max, "60");
-                model.addConstr(tau_fbdn[1][0][i][j] >= 0, "15");
-*/
                 //BRAM constraints
                 model.addConstr(tau[1][i][j] <= 1000 * beta[i][j], "61");
                 model.addConstr(tau[1][i][j] <= bram[i][1] - bram[i][0], "62");
@@ -1485,7 +2390,8 @@ int solve_milp_vc707(param_from_solver *to_sim)
         Constraint 4.1:
         **************************************************************************/
 
-        for(i = 0; i < num_slots; i++) {
+#ifndef FLORA_AUTOGEN_CONSTR
+        for (i = 0; i < num_slots; i++) {
             for (j = 0; j <  num_fbdn_edge; j++) {
                 l = 0;
                 model.addConstr(x[i][0] - forbidden_boundaries_left[j] <= -0.01 + kappa[i][j][l] * BIG_M, "edge_con");
@@ -1495,6 +2401,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
                 model.addConstr(x[i][1] - forbidden_boundaries_right[j] >= 0.01 - (1 - kappa[i][j][l]) * BIG_M, "edge_con_3");
             }
         }
+#endif // FLORA_AUTOGEN_CONSTR
 
 
         //Objective function parameters definition
@@ -1505,15 +2412,15 @@ int solve_milp_vc707(param_from_solver *to_sim)
         *************************************************************************/
         GRBLinExpr obj_x, obj_y, obj_wasted_clb, obj_wasted_bram, obj_wasted_dsp;
         unsigned long wl_max = 0;
-        
-        for(i = 0; i < num_slots; i++) {
+
+        for (i = 0; i < num_slots; i++) {
             model.addConstr(centroid[i][0] == x[i][0] + w[i] / 2, "84");
             model.addConstr(centroid[i][1] == y[i] * 10 + h[i] * 10 / 2, "86");
-        }    
+        }
 
-       for(i =0; i < num_slots; i++){
-            for(j = 0; j < num_slots; j++) {
-                if(i >= j ) {
+        for (i =0; i < num_slots; i++){
+            for (j = 0; j < num_slots; j++) {
+                if (i >= j) {
                     continue;
                 }
                 model.addConstr(dist[i][j][0] >= (centroid[i][0] - centroid[j][0]), "87");
@@ -1523,27 +2430,27 @@ int solve_milp_vc707(param_from_solver *to_sim)
             }
         }
 
-        for(i = 0; i < num_slots; i++) {
-            for(j = 0; j < num_slots; j++) {
-                if(i >= j)
+        for (i = 0; i < num_slots; i++) {
+            for (j = 0; j < num_slots; j++) {
+                if (i >= j)
                     continue;
                 obj_x += dist[i][j][0];
                 obj_y += dist[i][j][1];
             }
-    }
-        
+        }
+
         for(i = 0; i < num_slots; i++) {
             obj_wasted_clb  += wasted[i][0];
             obj_wasted_bram += wasted[i][1];
             obj_wasted_dsp  += wasted[i][2];
         }
-        
+
 
          model.setObjective((obj_x), GRB_MINIMIZE);
         //model.setObjective(obj_wasted_clb,  GRB_MINIMIZE);
         //model.setObjective(obj_wasted_bram, GRB_MINIMIZE);
          //model.setObjective(0.1 * obj_wasted_dsp,  GRB_MINIMIZE);
-  
+
         //Optimize
         /****************************************************************************
         Optimize
@@ -1585,7 +2492,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
                         dsp[i][1].get(GRB_DoubleAttr_X) << "\t" << ((dsp[i][1].get(GRB_DoubleAttr_X) -
                                 dsp[i][0].get(GRB_DoubleAttr_X)) * h[i].get(GRB_DoubleAttr_X) - dsp_fbdn_tot[i].get(GRB_DoubleAttr_X)) * dsp_per_tile << "\t" << dsp_req_vc707[i] <<endl;
 
-//                        cout <<endl;
+                        cout <<endl;
 
                         (*to_sim->x)[i] = (int) x[i][0].get(GRB_DoubleAttr_X);
                         (*to_sim->y)[i] = (int) y[i].get(GRB_DoubleAttr_X) * 10;
@@ -1610,7 +2517,7 @@ int solve_milp_vc707(param_from_solver *to_sim)
             cout <<endl;
             cout << "total wasted clb " <<wasted_clb_vc707 <<
                     " total wasted bram " <<wasted_bram_vc707 <<
-                    " total wastd dsp " << wasted_dsp_vc707 <<endl;
+                    " total wasted dsp " << wasted_dsp_vc707 <<endl;
 
             cout <<endl;
     }
@@ -1655,7 +2562,7 @@ int vc707_start_optimizer(param_to_solver *param, param_from_solver *to_sim)
     num_forbidden_slots = param->num_forbidden_slots;
     num_rows = param->num_rows;
     H =  param->num_clk_regs;
-    W =  param->width;  
+    W =  param->width;
 
     num_clk_regs = param->num_clk_regs;
     clb_per_tile = param->clb_per_tile;

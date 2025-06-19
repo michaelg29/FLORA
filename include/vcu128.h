@@ -10,7 +10,7 @@
 #define VCU128_FORBIDDEN 3
 #define VCU128_CLB_PER_TILE 60
 #define VCU128_BRAM_PER_TILE 12 // BRAM36
-#define VCU128_DSP_PER_TILE 18 // 18 for clock region Y0, 24 for all others
+#define VCU128_DSP_PER_TILE 24 // 18 for clock region Y0, 24 for all others
 #define VCU128_CLB_TOT  180960
 #define VCU128_BRAM_TOT  4368
 #define VCU128_DSP_TOT  9792

@@ -11,7 +11,7 @@ typedef std::vector<pos> Vecpos;
 
 typedef struct {
     unsigned int num_tasks_in_part;
-    std::vector<unsigned int> task_id;                                  
+    std::vector<unsigned int> task_id;
 }hw_task_allocation;
 
 typedef struct {
@@ -43,7 +43,7 @@ typedef  struct{
     std::vector<int> *h;
     std::vector<int> *clb_from_solver;
     std::vector<int> *bram_from_solver;
-    std::vector<int> *dsp_from_solver;    
+    std::vector<int> *dsp_from_solver;
     std::vector<hw_task_allocation> *task_alloc;
 }param_from_solver;
 
@@ -53,4 +53,5 @@ int virtex_start_optimizer_v5(param_to_solver *, param_from_solver *);
 int pynq_start_optimizer(param_to_solver *, param_from_solver *);
 int vc707_start_optimizer(param_to_solver *, param_from_solver *);
 int vcu118_start_optimizer(param_to_solver *, param_from_solver *);
+int vcu128_start_optimizer(param_to_solver *, param_from_solver *);
 #endif // ZYNQ_MODEL_H
