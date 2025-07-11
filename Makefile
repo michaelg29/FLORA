@@ -1,11 +1,17 @@
+
+ifndef GUROBI_HOME
+$(error You must set GUROBI_HOME to match your installation of Gurobi to use this Makefile. Also make sure that LD_LIBRARY_PATH points to the library files with the Gurobi installation.)
+endif
+
 CC = g++
 CFLAGS = -Iflora/include/
 CFLAGS += -Iinclude/
-CFLAGS += -std=c++17
-#CFLAGS += -L$(GUROBI_HOME)/lib
+CFLAGS += -I$(GUROBI_HOME)/include
+CFLAGS += -std=c++11
+CFLAGS += -L$(GUROBI_HOME)/lib
 #CFLAGS += -ggdb -g3
 
-LDFLAGS = -lgurobi_g++5.2 -lgurobi_c++ -lgurobi100 -lm -lstdc++fs
+LDFLAGS = -lgurobi_g++4.2 -lgurobi_c++ -lgurobi91 -lm
 
 all:
 	@echo "Please run the make file using the following format"

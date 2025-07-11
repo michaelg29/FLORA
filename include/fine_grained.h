@@ -17,15 +17,17 @@ typedef struct {
     int type_of_res;
     int slice_1;
     int slice_2;
-}finegrained_res_description;
+} finegrained_res_description;
 
-typedef  struct {
+typedef struct {
     unsigned long slice_x1;
     unsigned long slice_x2;
     unsigned long slice_y1;
     unsigned long slice_y2;
-}slice_addres;
+} slice_address;
 
-typedef slice_addres slice[4];
+typedef struct {
+    slice_address addresses[4];
+} slices;
 
 #endif // FINE_GRAINED_H

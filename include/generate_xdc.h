@@ -29,29 +29,10 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
     unsigned long a;\
     int status;\
     unsigned long width, num_rows, num_forbidden_slots;\
-    vector<slice> slices_in_slot = vector<slice> (MAX_SLOTS);\
+    vector<slices> slices_in_slot = vector<slices> (MAX_SLOTS);\
     ofstream write_xdc;\
     sort_output(fpga_type, from_fp_solver, to_solver, slices_in_slot, num_slots)\
     cout << "GENERATE_XDC: Started xdc generation " << endl;\
-    for (a = 0; a < num_slots; a++){\
-    /*    cout << "x1 " << slices_in_slot[a][0].slice_x1  <<" y1 " << slices_in_slot[a][0].slice_y1*/\
-    /*             << " x2 " << slices_in_slot[a][0].slice_x2 << " y2 " << slices_in_slot[a][0].slice_y2 << endl;*/\
-    }\
-    /*cout << "inside sort output bram 18" << endl;*/\
-    for (a = 0; a < num_slots; a++){\
-    /*    cout << "x1 " << slices_in_slot[a][1].slice_x1 << " y1 " << slices_in_slot[a][1].slice_y1 << */\
-    /*             " x2 " << slices_in_slot[a][1].slice_x2 << " y2 " << slices_in_slot[a][1].slice_y2 << endl;*/\
-    }\
-    /*cout << "inside sort output bram 36" << endl;*/\
-    for (a = 0; a < num_slots; a++){\
-    /*    cout << "x1 " << slices_in_slot[a][2].slice_x1 << " y1 " << slices_in_slot[a][2].slice_y1 */\
-    /*            <<" x2 " << slices_in_slot[a][2].slice_x2 << " y2 " << slices_in_slot[a][2].slice_y2 << endl;*/\
-    }\
-    /*cout << "inside sort output dsp " << endl;*/\
-    for (a = 0; a < num_slots; a++){\
-    /*    cout << "x1 " << slices_in_slot[a][3].slice_x1 << " y1 " << slices_in_slot[a][3].slice_y1<< */\
-    /*             " x2 " << slices_in_slot[a][3].slice_x2  << " y2 " << slices_in_slot[a][3].slice_y2 << endl;*/\
-    }\
     write_xdc.open(fplan_xdc_file);\
     write_xdc<< "# User Generated miscellaneous constraints" << endl <<endl <<endl;\
     for(a = 0; a < num_slots; a++){\
@@ -60,24 +41,24 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
         write_xdc <<"create_pblock pblock_"<<slot_names[a] <<endl;\
         write_xdc <<"add_cells_to_pblock [get_pblocks pblock_"<<slot_names[a] <<"] $cell" <<endl;\
         if((*from_fp_solver->clb_from_solver)[a] != 0) {\
-            write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {SLICE_X" <<slices_in_slot[a][0].slice_x1<<"Y" <<\
-                     slices_in_slot[a][0].slice_y1 <<":" <<"SLICE_X"<<slices_in_slot[a][0].slice_x2<<"Y"<<slices_in_slot[a][0].slice_y2 << "}" <<endl;\
+            write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {SLICE_X" <<slices_in_slot[a].addresses[0].slice_x1<<"Y" <<\
+                     slices_in_slot[a].addresses[0].slice_y1 <<":" <<"SLICE_X"<<slices_in_slot[a].addresses[0].slice_x2<<"Y"<<slices_in_slot[a].addresses[0].slice_y2 << "}" <<endl;\
         }\
         if((*from_fp_solver->bram_from_solver)[a] != 0) {\
-        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {RAMB18_X" <<slices_in_slot[a][1].slice_x1<<"Y" <<\
-                     slices_in_slot[a][1].slice_y1 <<":" <<"RAMB18_X"<<slices_in_slot[a][1].slice_x2<<"Y"<<slices_in_slot[a][1].slice_y2 << "}" <<endl;\
-        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {RAMB36_X" <<slices_in_slot[a][2].slice_x1<<"Y" <<\
-                    slices_in_slot[a][2].slice_y1 <<":" <<"RAMB36_X"<<slices_in_slot[a][2].slice_x2<<"Y"<<slices_in_slot[a][2].slice_y2 << "}" <<endl;\
+        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {RAMB18_X" <<slices_in_slot[a].addresses[1].slice_x1<<"Y" <<\
+                     slices_in_slot[a].addresses[1].slice_y1 <<":" <<"RAMB18_X"<<slices_in_slot[a].addresses[1].slice_x2<<"Y"<<slices_in_slot[a].addresses[1].slice_y2 << "}" <<endl;\
+        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {RAMB36_X" <<slices_in_slot[a].addresses[2].slice_x1<<"Y" <<\
+                    slices_in_slot[a].addresses[2].slice_y1 <<":" <<"RAMB36_X"<<slices_in_slot[a].addresses[2].slice_x2<<"Y"<<slices_in_slot[a].addresses[2].slice_y2 << "}" <<endl;\
         }\
         if (US_FPGA == 1) { \
         if((*from_fp_solver->dsp_from_solver)[a] != 0) {\
-        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {DSP48E2_X" <<slices_in_slot[a][3].slice_x1<<"Y" <<\
-                    slices_in_slot[a][3].slice_y1 <<":" <<"DSP48E2_X"<<slices_in_slot[a][3].slice_x2<<"Y"<<slices_in_slot[a][3].slice_y2 << "}" <<endl;\
+        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {DSP48E2_X" <<slices_in_slot[a].addresses[3].slice_x1<<"Y" <<\
+                    slices_in_slot[a].addresses[3].slice_y1 <<":" <<"DSP48E2_X"<<slices_in_slot[a].addresses[3].slice_x2<<"Y"<<slices_in_slot[a].addresses[3].slice_y2 << "}" <<endl;\
         }}\
         else {\
         if((*from_fp_solver->dsp_from_solver)[a] != 0) {\
-        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {DSP48_X" <<slices_in_slot[a][3].slice_x1<<"Y" <<\
-                    slices_in_slot[a][3].slice_y1 <<":" <<"DSP48_X"<<slices_in_slot[a][3].slice_x2<<"Y"<<slices_in_slot[a][3].slice_y2 << "}" <<endl;\
+        write_xdc << "resize_pblock [get_pblocks pblock_"<<slot_names[a]<< "] -add {DSP48_X" <<slices_in_slot[a].addresses[3].slice_x1<<"Y" <<\
+                    slices_in_slot[a].addresses[3].slice_y1 <<":" <<"DSP48_X"<<slices_in_slot[a].addresses[3].slice_x2<<"Y"<<slices_in_slot[a].addresses[3].slice_y2 << "}" <<endl;\
         }}\
         write_xdc << "set_property RESET_AFTER_RECONFIG true [get_pblocks pblock_"<< slot_names[a] <<"]" <<endl;\
         write_xdc << "set_property SNAPPING_MODE OFF [get_pblocks pblock_"<< slot_names[a] <<"]" <<endl;\
@@ -110,7 +91,7 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
             while(flag == 0){\
                 if(k < x + w){\
                     if((fpga_type->fg[k].type_of_res) == m) {\
-                        output_vec[i][index].slice_x1 = fpga_type->fg[k].slice_1;\
+                        output_vec[i].addresses[index].slice_x1 = fpga_type->fg[k].slice_1;\
                         /*cout << "left m " << m << " k " << k << " res " <<fpga_type->fg[k].slice_1 <<endl;*/\
                         flag = 1;\
                     }\
@@ -125,7 +106,7 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
             while(flag == 0){\
                 if (k >= x) {\
                     if((fpga_type->fg[k].type_of_res) == m){\
-                        output_vec[i][index].slice_x2 = fpga_type->fg[k].slice_2;\
+                        output_vec[i].addresses[index].slice_x2 = fpga_type->fg[k].slice_2;\
                         /*cout << "right m " << m << " k " << k << " res " <<fpga_type->fg[k].slice_2 <<endl;*/\
                         flag = 1;\
                     }\
@@ -145,32 +126,32 @@ string slot_names[] = {"slot_0", "slot_1", "slot_2", "slot_3",
                 col = to_solver.dsp_per_tile;\
             if(m == CLB) {\
                 if((*from_fp_solver->clb_from_solver)[i] != 0) {\
-                    output_vec[i][index].slice_y1 = y /10 * col;\
-                    output_vec[i][index].slice_y2 = (((y + h)/10) * col) - 1;\
+                    output_vec[i].addresses[index].slice_y1 = y /10 * col;\
+                    output_vec[i].addresses[index].slice_y2 = (((y + h)/10) * col) - 1;\
                 }\
                 else {\
-                    output_vec[i][index].slice_y1 = 0;\
-                    output_vec[i][index].slice_y2 = 0;\
+                    output_vec[i].addresses[index].slice_y1 = 0;\
+                    output_vec[i].addresses[index].slice_y2 = 0;\
                 }\
             }\
                 if(m == BRAM) {\
                     if((*from_fp_solver->bram_from_solver)[i] != 0) {\
-                        output_vec[i][index].slice_y1 = y /10 * col;\
-                        output_vec[i][index].slice_y2 = (((y + h)/10) * col) - 1;\
+                        output_vec[i].addresses[index].slice_y1 = y /10 * col;\
+                        output_vec[i].addresses[index].slice_y2 = (((y + h)/10) * col) - 1;\
                     }\
                     else {\
-                        output_vec[i][index].slice_y1 = 0;\
-                        output_vec[i][index].slice_y2 = 0;\
+                        output_vec[i].addresses[index].slice_y1 = 0;\
+                        output_vec[i].addresses[index].slice_y2 = 0;\
                     }\
                }\
                  if(m == DSP) {\
                       if((*from_fp_solver->dsp_from_solver)[i] != 0) {\
-                          output_vec[i][index].slice_y1 = y /10 * col;\
-                          output_vec[i][index].slice_y2 = (((y + h)/10) * col) - 1;\
+                          output_vec[i].addresses[index].slice_y1 = y /10 * col;\
+                          output_vec[i].addresses[index].slice_y2 = (((y + h)/10) * col) - 1;\
                       }\
                        else {\
-                            output_vec[i][index].slice_y1 = 0;\
-                            output_vec[i][index].slice_y2 = 0;\
+                            output_vec[i].addresses[index].slice_y1 = 0;\
+                            output_vec[i].addresses[index].slice_y2 = 0;\
                         }\
                 }\
                  if(m == BRAM && is_bram_18 == false) {\
