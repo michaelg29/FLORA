@@ -1,9 +1,10 @@
 #ifndef VCU118_DEF_H
 #define VCU118_DEF_H
 
-#include "fpga.h" 
+#include "fpga.h"
 
-#define VCU118_CLK_REG 28
+#define VCU118_CLK_REG 90 // X0Y0 to X5Y14
+#define VCU118_CHIPLET_HEIGHT 4 // excludes first row
 #define VCU118_WIDTH 188
 #define VCU118_NUM_ROWS 20
 #define VCU118_FORBIDDEN 3
@@ -20,7 +21,7 @@ public:
     int clb_per_tile  = VCU118_CLB_PER_TILE;
     int bram_per_tile = VCU118_BRAM_PER_TILE;
     int dsp_per_tile  = VCU118_DSP_PER_TILE;
-    int num_clk_reg   = VCU118_CLK_REG;
+    int num_clk_reg   = VCU118_CLK_REG - 6; // remove bottom row
     unsigned long width  = VCU118_WIDTH;
 //    void initialize_clk_reg();
     vcu118();

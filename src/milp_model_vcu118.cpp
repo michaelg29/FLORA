@@ -100,7 +100,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 
         GRBVarArray h (num_slots);
         for(i = 0; i < num_slots; i++) {
-            h[i] = model.addVar(0.0, H, 0.0, GRB_INTEGER);
+            h[i] = model.addVar(0.0, VCU118_CHIPLET_HEIGHT, 0.0, GRB_INTEGER);
         }
 
         /**********************************************************************
@@ -1494,7 +1494,7 @@ int solve_milp_vcu118(param_from_solver *to_sim)
 //                        cout <<endl;
 
                         (*to_sim->x)[i] = (int) x[i][0].get(GRB_DoubleAttr_X);
-                        (*to_sim->y)[i] = (int) y[i].get(GRB_DoubleAttr_X) * 10;
+                        (*to_sim->y)[i] = (int) (y[i].get(GRB_DoubleAttr_X) + 1) * 10;
                         (*to_sim->w)[i] = (int) w[i].get(GRB_DoubleAttr_X);
                         (*to_sim->h)[i] = (int) h[i].get(GRB_DoubleAttr_X) * 10;
                         (*to_sim->clb_from_solver)[i] = (int) ((clb[i][1].get(GRB_DoubleAttr_X) - clb[i][0].get(GRB_DoubleAttr_X)) * h[i].get(GRB_DoubleAttr_X) * clb_per_tile);

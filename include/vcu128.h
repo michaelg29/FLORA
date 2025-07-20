@@ -1,10 +1,11 @@
-#ifndef VCU118_DEF_H
-#define VCU118_DEF_H
+#ifndef VCU128_DEF_H
+#define VCU128_DEF_H
 
 #include "fpga.h"
 
 // TODO update numbers
 #define VCU128_CLK_REG 96 // X0Y0 to X7Y11
+#define VCU128_CHIPLET_HEIGHT 4 // excludes first row
 #define VCU128_WIDTH 278
 #define VCU128_NUM_ROWS 12 // number of clock regions on the y-coordinate
 #define VCU128_FORBIDDEN 3
@@ -21,10 +22,11 @@ public:
     int clb_per_tile  = VCU128_CLB_PER_TILE;
     int bram_per_tile = VCU128_BRAM_PER_TILE;
     int dsp_per_tile  = VCU128_DSP_PER_TILE;
-    int num_clk_reg   = VCU128_CLK_REG; // H
+    int num_clk_reg   = VCU128_CLK_REG - 8; // H, excluding first row of CLBs
     unsigned long width  = VCU128_WIDTH; // W
 //    void initialize_clk_reg();
     vcu128();
 };
-#endif
+
+#endif // VCU128_DEF_H
 

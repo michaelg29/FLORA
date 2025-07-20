@@ -100,7 +100,7 @@ int solve_milp_vcu128(param_from_solver *to_sim)
 
         GRBVarArray h (num_slots);
         for(i = 0; i < num_slots; i++) {
-            h[i] = model.addVar(0.0, H, 0.0, GRB_INTEGER);
+            h[i] = model.addVar(0.0, VCU128_CHIPLET_HEIGHT, 0.0, GRB_INTEGER);
         }
 
         /**********************************************************************

@@ -187,10 +187,10 @@ void flora::start_optimizer()
     param.bram_per_tile = vcu118_inst->bram_per_tile;
     param.dsp_per_tile  = vcu118_inst->dsp_per_tile;
 
-    cout <<"FLORA: starting VC118 MILP optimizer " <<endl;
+    cout <<"FLORA: starting VCU118 MILP optimizer " <<endl;
     vcu118_start_optimizer(&param, &from_solver);
     write_output(&from_solver);
-    cout <<"FLORA: finished VC118 optimizer " <<endl;
+    cout <<"FLORA: finished VCU118 optimizer " <<endl;
 
 #elif FPGA_VCU128
     vcu128_inst = new vcu128();
@@ -201,10 +201,10 @@ void flora::start_optimizer()
     param.bram_per_tile = vcu128_inst->bram_per_tile;
     param.dsp_per_tile  = vcu128_inst->dsp_per_tile;
 
-    cout <<"FLORA: starting VC128 MILP optimizer " <<endl;
+    cout <<"FLORA: starting VCU128 MILP optimizer " <<endl;
     vcu128_start_optimizer(&param, &from_solver);
     write_output(&from_solver);
-    cout <<"FLORA: finished VC128 optimizer " <<endl;
+    cout <<"FLORA: finished VCU128 optimizer " <<endl;
 
 #endif
 }
